@@ -7,6 +7,7 @@ import com.typesafe.sbt.SbtScalariform.ScalariformKeys
 import com.typesafe.sbt.packager.docker.Cmd
 import mesosphere.maven.MavenSettings.{loadM2Credentials, loadM2Resolvers}
 import mesosphere.raml.RamlGeneratorPlugin
+import sbt.Def
 
 import scalariform.formatter.preferences.{AlignArguments, AlignParameters, AlignSingleLineCaseStatements, CompactControlReadability, DanglingCloseParenthesis, DoubleIndentClassDeclaration, FormatXml, FormattingPreferences, IndentSpaces, IndentWithTabs, MultilineScaladocCommentsStartOnFirstLine, PlaceScaladocAsterisksBeneathSecondAsterisk, Preserve, PreserveSpaceBeforeArguments, SpaceBeforeColon, SpaceInsideBrackets, SpaceInsideParentheses, SpacesAroundMultiImports, SpacesWithinPatternBinders}
 
@@ -44,53 +45,17 @@ lazy val formatSettings = SbtScalariform.scalariformSettings ++ Seq(
     .setPreference(SpacesWithinPatternBinders, true)
 )
 
-lazy val commonSettings = inConfig(SerialIntegrationTest)(Defaults.testTasks) ++
-  inConfig(IntegrationTest)(Defaults.testTasks) ++
-  inConfig(UnstableTest)(Defaults.testTasks) ++
-  inConfig(UnstableIntegrationTest)(Defaults.testTasks) ++
-  aspectjSettings ++ Seq(
-  autoCompilerPlugins := true,
-  organization := "mesosphere.marathon",
-  scalaVersion := "2.11.8",
-  crossScalaVersions := Seq(scalaVersion.value),
-  scalacOptions in Compile ++= Seq(
-    "-encoding", "UTF-8",
-    "-target:jvm-1.8",
-    "-deprecation",
-    "-feature",
-    "-unchecked",
-    "-Xfuture",
-    "-Xlog-reflective-calls",
-    "-Xlint",
-    //FIXME: CORE-977 and MESOS-7368 are filed and need to be resolved to re-enable this
-    // "-Xfatal-warnings",
-    "-Yno-adapted-args",
-    "-Ywarn-numeric-widen",
-    //"-Ywarn-dead-code", We should turn this one on soon
-    "-Ywarn-inaccessible",
-    "-Ywarn-infer-any",
-    "-Ywarn-nullary-override",
-    "-Ywarn-nullary-unit",
-    //"-Ywarn-unused", We should turn this one on soon
-    "-Ywarn-unused-import",
-    //"-Ywarn-value-discard", We should turn this one on soon.
-    "-Yclosure-elim",
-    "-Ydead-code"
-  ),
-  javacOptions in Compile ++= Seq(
-    "-encoding", "UTF-8", "-source", "1.8", "-target", "1.8", "-Xlint:unchecked", "-Xlint:deprecation"
-  ),
-  resolvers ++= Seq(
-    "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases/",
-    "Apache Shapshots" at "https://repository.apache.org/content/repositories/snapshots/",
-    "Mesosphere Public Repo" at "https://downloads.mesosphere.com/maven"
-  ),
-  cancelable in Global := true,
-  publishTo := Some(s3resolver.value(
-    "Mesosphere Public Repo (S3)",
-    s3("downloads.mesosphere.io/maven")
-  )),
-  s3credentials := new EnvironmentVariableCredentialsProvider() | new InstanceProfileCredentialsProvider(),
+lazy val testWithCoverage = taskKey[Unit]("Run tests with coverage enabled")
+
+
+lazy val testSettings = Seq(
+  testWithCoverage in Test := {
+    (clean in Test).value
+    coverageAggregate.value
+    (test in Test).andFinally {
+        coverageReport.value
+    }
+  },
 
   testListeners := Seq(new PhabricatorTestReportListener(target.value / "phabricator-test-reports")),
   parallelExecution in Test := true,
@@ -141,7 +106,56 @@ lazy val commonSettings = inConfig(SerialIntegrationTest)(Defaults.testTasks) ++
       "-n", "mesosphere.marathon.SerialIntegrationTest",
       "-y", "org.scalatest.WordSpec")),
   parallelExecution in UnstableIntegrationTest := true,
-  testForkedParallel in UnstableIntegrationTest := true,
+  testForkedParallel in UnstableIntegrationTest := true
+) ++ inConfig(SerialIntegrationTest)(Defaults.testTasks) ++
+  inConfig(IntegrationTest)(Defaults.testTasks) ++
+  inConfig(UnstableTest)(Defaults.testTasks) ++
+  inConfig(UnstableIntegrationTest)(Defaults.testTasks)
+
+lazy val commonSettings = testSettings ++
+  aspectjSettings ++ Seq(
+  autoCompilerPlugins := true,
+  organization := "mesosphere.marathon",
+  scalaVersion := "2.11.8",
+  crossScalaVersions := Seq(scalaVersion.value),
+  scalacOptions in Compile ++= Seq(
+    "-encoding", "UTF-8",
+    "-target:jvm-1.8",
+    "-deprecation",
+    "-feature",
+    "-unchecked",
+    "-Xfuture",
+    "-Xlog-reflective-calls",
+    "-Xlint",
+    //FIXME: CORE-977 and MESOS-7368 are filed and need to be resolved to re-enable this
+    // "-Xfatal-warnings",
+    "-Yno-adapted-args",
+    "-Ywarn-numeric-widen",
+    //"-Ywarn-dead-code", We should turn this one on soon
+    "-Ywarn-inaccessible",
+    "-Ywarn-infer-any",
+    "-Ywarn-nullary-override",
+    "-Ywarn-nullary-unit",
+    //"-Ywarn-unused", We should turn this one on soon
+    "-Ywarn-unused-import",
+    //"-Ywarn-value-discard", We should turn this one on soon.
+    "-Yclosure-elim",
+    "-Ydead-code"
+  ),
+  javacOptions in Compile ++= Seq(
+    "-encoding", "UTF-8", "-source", "1.8", "-target", "1.8", "-Xlint:unchecked", "-Xlint:deprecation"
+  ),
+  resolvers ++= Seq(
+    "Typesafe Releases" at "https://repo.typesafe.com/typesafe/releases/",
+    "Apache Shapshots" at "https://repository.apache.org/content/repositories/snapshots/",
+    "Mesosphere Public Repo" at "https://downloads.mesosphere.com/maven"
+  ),
+  cancelable in Global := true,
+  publishTo := Some(s3resolver.value(
+    "Mesosphere Public Repo (S3)",
+    s3("downloads.mesosphere.io/maven")
+  )),
+  s3credentials := new EnvironmentVariableCredentialsProvider() | new InstanceProfileCredentialsProvider(),
 
   scapegoatVersion := "1.3.0",
 
