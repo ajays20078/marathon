@@ -222,12 +222,12 @@ def publish_artifacts() {
     // We should probably prefer downloads as this allows us to share snapshot builds
     // with anyone. The directory listing isn't public anyways.
     profile = "aws-production"
-    bucket = "downloads.mesosphere.io/marathon/snapshots/"
+    bucket = "downloads.mesosphere.io/marathon/snapshots"
     region = "us-east-1"
     upload_on_failure = !is_release_build(gitTag)
     if (is_release_build(gitTag)) {
       storageClass = "STANDARD"
-      bucket = "downloads.mesosphere.io/marathon/${gitTag}/"
+      bucket = "downloads.mesosphere.io/marathon/${gitTag}"
     }
     sh "sha1sum target/universal/marathon-${gitTag}.txz > target/universal/marathon-${gitTag}.txz.sha1"
     sh "sha1sum target/universal/marathon-${gitTag}.zip > target/universal/marathon-${gitTag}.zip.sha1"
