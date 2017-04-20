@@ -98,7 +98,7 @@ node('JenkinsMarathonCI-Debian8-2017-03-21') {
       // Last build failed but this succeeded.
       if (m.previousBuildFailed() && currentBuild.result == 'SUCCESS') {
         slackSend(
-            message: "╭( ･ㅂ･)و ̑̑ branch `${env.BRANCH_NAME}` is green again. (<${env.BUILD_URL}|Open>)",
+            message: "\u2714 ̑̑ branch `${env.BRANCH_NAME}` is green again. (<${env.BUILD_URL}|Open>)",
             color: "good",
             channel: "#marathon-dev",
             tokenCredentialId: "f430eaac-958a-44cb-802a-6a943323a6a8")
