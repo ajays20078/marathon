@@ -16,24 +16,14 @@ def install_dependencies() {
   return this
 }
 
-def setBuildInfo(displayName, description) {
-  currentBuild.displayName = displayName
-  currentBuild.description = description
-  return this
-}
-
-def checkout_marathon_master() {
-  git changelog: false, credentialsId: '4ff09dce-407b-41d3-847a-9e6609dd91b8', poll: false, url: 'git@github.com:mesosphere/marathon.git'
-  sh "sudo git clean -fdx"
-  sh """git tag | grep phabricator | xargs git tag -d || true """
-  return this
-}
 
 def m
 
 ansiColor('gnome-terminal') {
   node('JenkinsMarathonCI-Debian8-2017-03-21') {
-    m = load("src/jenkins/build.groovy")
+    stage("Install Dependencies") {
+      m.install_dependencies()
+    }
     stage("Checkout") {
       m.checkout()
       m = load("src/jenkins/build.groovy")

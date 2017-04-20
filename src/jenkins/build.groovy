@@ -20,7 +20,7 @@ def is_release_build(gitTag) {
 def ignore_error(block) {
   try {
     block()
-  } catch (err) {
+  } catch (ignored) {
 
   }
   return this
@@ -57,7 +57,7 @@ def phabricator_convert_test_coverage() {
 }
 
 // Publish the test coverage information into the build.
-// When we finally have the publish_html method, this will hopefully work.
+// When we finally have the publishHtml plugin, this will hopefully work.
 def publish_test_coverage(name, dir) {
   //publishHtml([allowMissing: true, alwaysLinkToLastBuild: false, keepAll: true, reportDir: dir, reportFiles: 'index.html', reportName: "$name Coverage"])
   return this
