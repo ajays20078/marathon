@@ -83,6 +83,7 @@ node('JenkinsMarathonCI-Debian8-2017-03-21') {
       }
     }
   } catch (Exception err) {
+    echo "Ran into an error in the pipeline: ${err} ${err.getMessage}"
     currentBuild.result = 'FAILURE'
     if (env.BRANCH_NAME.startsWith("releases/") || env.BRANCH_NAME == "master") {
       slackSend(

@@ -224,6 +224,7 @@ def publish_artifacts() {
     profile = "aws-production"
     bucket = "downloads.mesosphere.io/marathon/snapshots/"
     region = "us-east-1"
+    upload_on_failure = !is_release_build(gitTag)
     if (is_release_build(gitTag)) {
       storageClass = "STANDARD"
       bucket = "downloads.mesosphere.io/marathon/${gitTag}/"
@@ -234,7 +235,7 @@ def publish_artifacts() {
             sourceFile: "target/universal/marathon-*.txz",
             bucket: bucket,
             selectedRegion: region,
-            noUploadOnFailure: true,
+            noUploadOnFailure: upload_on_failure,
             managedArtifacts: false,
             flatten: true,
             showDirectlyInBrowser: true,
@@ -245,7 +246,7 @@ def publish_artifacts() {
                 sourceFile: "target/universal/marathon-*.zip",
                 bucket: bucket,
                 selectedRegion: region,
-                noUploadOnFailure: true,
+                noUploadOnFailure: upload_on_failure,
                 managedArtifacts: false,
                 flatten: true,
                 showDirectlyInBrowser: true,
