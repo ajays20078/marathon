@@ -45,17 +45,24 @@ lazy val formatSettings = SbtScalariform.scalariformSettings ++ Seq(
     .setPreference(SpacesWithinPatternBinders, true)
 )
 
-lazy val testWithCoverage = taskKey[Unit]("Run tests with coverage enabled")
+lazy val testWithCoverageReport = taskKey[Unit]("Run tests with coverage enabled, expects 'coverageEnabled' to be set first, e.g.: `; coverage; testWithCoverageReport;`")
 
+def runTestsWithCoverageReport(config: Configuration): Def.Initialize[Task[Unit]] = Def.task {
+  if (!coverageEnabled.value) {
+    sys.error("Coverage not enabled")
+  }
+  (test in Test).andFinally {
+    coverageReport.value
+  }
+}
 
 lazy val testSettings = Seq(
-  testWithCoverage in Test := {
-    (clean in Test).value
-    coverageAggregate.value
-    (test in Test).andFinally {
-        coverageReport.value
-    }
-  },
+  testWithCoverageReport := (testWithCoverageReport in Test).value,
+  testWithCoverageReport in Test := runTestsWithCoverageReport(Test).value,
+  testWithCoverageReport in IntegrationTest := runTestsWithCoverageReport(IntegrationTest).value,
+  testWithCoverageReport in SerialIntegrationTest := runTestsWithCoverageReport(SerialIntegrationTest).value,
+  testWithCoverageReport in UnstableTest := runTestsWithCoverageReport(UnstableTest).value,
+  testWithCoverageReport in UnstableIntegrationTest := runTestsWithCoverageReport(UnstableIntegrationTest).value,
 
   testListeners := Seq(new PhabricatorTestReportListener(target.value / "phabricator-test-reports")),
   parallelExecution in Test := true,
@@ -94,10 +101,10 @@ lazy val testSettings = Seq(
   parallelExecution in IntegrationTest := true,
   testForkedParallel in IntegrationTest := true,
   concurrentRestrictions in IntegrationTest := Seq(Tags.limitAll(math.max(1, java.lang.Runtime.getRuntime.availableProcessors() / 2))),
-  test in IntegrationTest := {
-    (test in IntegrationTest).value
-    (test in SerialIntegrationTest).value
-  },
+  test in IntegrationTest := Def.sequential {
+    test in IntegrationTest
+    test in SerialIntegrationTest
+  }.value,
 
   fork in UnstableIntegrationTest := true,
   testOptions in UnstableIntegrationTest := Seq(formattingTestArg(target.value / "test-reports" / "unstable-integration"),
