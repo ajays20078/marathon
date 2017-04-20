@@ -71,7 +71,9 @@ node('JenkinsMarathonCI-Debian8-2017-03-21') {
       if (m.has_unstable_tests()) {
         try {
           m.unstable_test()
-        } catch (err) {
+        } catch (Exception err) {
+          echo "Unstable tests had an error ${err} Current result ${currentBuild.result}"
+
           // For PRs, can we report it there somehow?
           if (env.BRANCH_NAME.startsWith("releases/") || env.BRANCH_NAME == "master") {
             slackSend(message: "\u26a0 branch `${env.BRANCH_NAME}` has unstable tests in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
@@ -83,7 +85,7 @@ node('JenkinsMarathonCI-Debian8-2017-03-21') {
       }
     }
   } catch (Exception err) {
-    echo "Ran into an error in the pipeline: ${err}"
+    echo "Ran into an error in the pipeline: ${err} Current result ${currentBuild.result}"
     currentBuild.result = 'FAILURE'
     if (env.BRANCH_NAME.startsWith("releases/") || env.BRANCH_NAME == "master") {
       slackSend(
