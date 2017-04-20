@@ -163,7 +163,7 @@ def unstable_test() {
       withEnv(['RUN_DOCKER_INTEGRATION_TESTS=true', 'RUN_MESOS_INTEGRATION_TESTS=true']) {
         // ignore the status here.
         STATUS = sh(script: "sudo -E sbt -Dsbt.log.format=false clean coverage unstable:test unstable-integration:test", returnStatus: true)
-        sh """sudo -E sbt -Dsbt.log.format=false coverageReport"""
+        sh """sudo -E sbt -Dsbt.log.format=false '; set coverageFailOnMinimum := false; coverageReport' """
         if (STATUS != 0) {
           throw new Exception("Unstable Tests Failed.")
         }
