@@ -21,6 +21,7 @@ def m
 
 ansiColor('gnome-terminal') {
   node('JenkinsMarathonCI-Debian8-2017-03-21') {
+    m = load("src/jenkins/build.groovy")
     stage("Install Dependencies") {
       m.install_dependencies()
     }
