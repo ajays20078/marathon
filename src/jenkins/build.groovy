@@ -130,91 +130,14 @@ def should_publish_artifacts() {
   return ((env.BRANCH_NAME != null && env.BRANCH_NAME.startsWith("releases/")) || env.BRANCH_NAME == "master") || env.PUBLISH_SNAPSHOT == "true"
 }
 
+
 /**
- * Functions that are different if we're building a github branch (PRs included)
- * vs building a phabricator build
+ * Wrap block with a stage and a GitHub commit status setter for Github builds.
  *
- * We will likely want to do something similar for a future "submit to branch X" on behalf of a user.
- *
- * required:
- *{{{*   def stage_with_commit_status(label, block)
- *   def report_success()
- *   def report_failure()
- *   def report_unstable_tests()
- *   def after_tests(category)
- *   def should_archive_artifacts()
- *   def checkout()
- *}}}*/
-
-def stage_with_commit_status
-def report_success
-def report_failure
-def report_unstable_tests
-def should_archive_artifacts
-def after_tests
-def checkout
-
-if (is_phabricator_build()) {
-
-  stage_with_commit_status = { label, block ->
-    stage(label) {
-      try {
-        block
-        currentBuild.result = 'SUCCESS'
-      } catch(Exception ex) {
-        currentBuild.result = 'FAILURE'
-        throw ex
-      }
-    }
-  }
-
-  report_success = { ->
-    phabricator_test_results("pass")
-    icon = "\u221a"
-    try {
-      phabricator("differential.revision.edit", """ transactions: [{type: "accept", value: true}, {type: "comment", value: "\u221a Build of $DIFF_ID completed at $BUILD_URL"}], objectIdentifier: "D$REVISION_ID" """)
-    } catch (Exception err) {
-      phabricator("differential.revision.edit", """ transactions: [{type: "comment", value: "\u221a Build of $DIFF_ID completed at $BUILD_URL"}], objectIdentifier: "D$REVISION_ID" """)
-    }
-  }
-
-  report_failure = { ->
-    phabricator_test_results("fail")
-    try {
-      phabricator("differential.revision.edit", """ transactions: [{type: "reject", value: true}, {type: "comment", value: "\u2717 Build of $DIFF_ID Failed at $BUILD_URL"}], objectIdentifier: "D$REVISION_ID" """)
-    } catch (Exception ignored) {
-      phabricator("differential.revision.edit", """ transactions: [{type: "comment", value: "\u2717 Build of $DIFF_ID Failed at $BUILD_URL"}], objectIdentifier: "D$REVISION_ID" """)
-    }
-  }
-
-  report_unstable_tests = { ->
-    phabricator("differential.revision.edit", """ transactions: [{type: "comment", value: "\u26a0 Build of $DIFF_ID has Unstable Tests at $BUILD_URL"}], objectIdentifier: "D$REVISION_ID" """)
-  }
-
-  should_archive_artifacts = { ->
-    return false
-  }
-
-  after_tests = { category ->
-    phabricator_convert_test_coverage()
-  }
-
-  checkout = { ->
-    setBuildInfo("D$REVISION_ID($DIFF_ID) #$BUILD_NUMBER", "<a href=\"https://phabricator.mesosphere.com/D$REVISION_ID\">D$REVISION_ID</a>")
-    git changelog: false, credentialsId: '4ff09dce-407b-41d3-847a-9e6609dd91b8', poll: false, url: 'git@github.com:mesosphere/marathon.git'
-    sh """git checkout master && git branch | grep -v master | xargs git branch -D || true"""
-    m.phabricator_apply_diff("$PHID", "$BUILD_URL", "$REVISION_ID", "$DIFF_ID")
-    clean_git()
-  }
-} else {
-
-  /**
-   * Wrap block with a stage and a GitHub commit status setter.
-   *
-   * @param label The label for the stage and commit status context.
-   * @param block The block to execute in stage.
-   */
-  stage_with_commit_status = { label, block ->
+ * @param label The label for the stage and commit status context.
+ * @param block The block to execute in stage.
+ */
+def stage_with_commit_status(label, block) {
     stage(label) {
       try {
         // Execute steps in stage
@@ -224,15 +147,25 @@ if (is_phabricator_build()) {
         currentBuild.result = 'FAILURE'
         throw error
       } finally {
-        // Mark commit with final status
-        step([$class: 'GitHubCommitStatusSetter'
-            , contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: "Velocity " + label]
-        ])
+        if (!is_phabricator_build()) {
+          // Mark commit with final status
+          step([$class: 'GitHubCommitStatusSetter'
+              , contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: "Velocity " + label]
+          ])
+        }
       }
     }
-  }
+}
 
-  report_success = { ->
+def report_success() {
+  if (is_phabricator_build()) {
+    phabricator_test_results("pass")
+    try {
+      phabricator("differential.revision.edit", """ transactions: [{type: "accept", value: true}, {type: "comment", value: "\u221a Build of $DIFF_ID completed at $BUILD_URL"}], objectIdentifier: "D$REVISION_ID" """)
+    } catch (Exception err) {
+      phabricator("differential.revision.edit", """ transactions: [{type: "comment", value: "\u221a Build of $DIFF_ID completed at $BUILD_URL"}], objectIdentifier: "D$REVISION_ID" """)
+    }
+  } else {
     if (is_master_or_release()) {
       if (previousBuildFailed() && currentBuild.result == 'SUCCESS') {
         slackSend(
@@ -247,8 +180,17 @@ if (is_phabricator_build()) {
         , contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: "Velocity All"]
     ])
   }
+}
 
-  report_failure = { ->
+def report_failure() {
+  if (is_phabricator_build()) {
+    phabricator_test_results("fail")
+    try {
+      phabricator("differential.revision.edit", """ transactions: [{type: "reject", value: true}, {type: "comment", value: "\u2717 Build of $DIFF_ID Failed at $BUILD_URL"}], objectIdentifier: "D$REVISION_ID" """)
+    } catch (Exception ignored) {
+      phabricator("differential.revision.edit", """ transactions: [{type: "comment", value: "\u2717 Build of $DIFF_ID Failed at $BUILD_URL"}], objectIdentifier: "D$REVISION_ID" """)
+    }
+  } else {
     if (is_master_or_release()) {
       slackSend(
           message: "\u2718 branch `${env.BRANCH_NAME}` failed in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
@@ -261,30 +203,44 @@ if (is_phabricator_build()) {
         , contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: "Velocity All"]
     ])
   }
+}
 
-  report_unstable_tests = { ->
-    if (is_master_or_release()) {
-      slackSend(message: "\u26a0 branch `${env.BRANCH_NAME}` has unstable tests in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
-          color: "danger",
-          channel: "#marathon-dev",
-          tokenCredentialId: "f430eaac-958a-44cb-802a-6a943323a6a8")
-    }
+def report_unstable_tests() {
+  if (is_phabricator_build()) {
+    phabricator("differential.revision.edit", """ transactions: [{type: "comment", value: "\u26a0 Build of $DIFF_ID has Unstable Tests at $BUILD_URL"}], objectIdentifier: "D$REVISION_ID" """)
+  } else if (is_master_or_release()) {
+    slackSend(message: "\u26a0 branch `${env.BRANCH_NAME}` has unstable tests in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
+        color: "danger",
+        channel: "#marathon-dev",
+        tokenCredentialId: "f430eaac-958a-44cb-802a-6a943323a6a8")
+  } else {
+    // TODO: Can we comment on PRs?
   }
+}
 
-  after_tests = { category ->
+def should_archive_artifacts() {
+  return is_master_or_release() && !is_phabricator_build()
+}
 
+def after_tests(category) {
+  if (is_phabricator_build()) {
+    phabricator_convert_test_coverage(category)
   }
+}
 
-  checkout = { ->
+def checkout() {
+  if (is_phabricator_build()) {
+    setBuildInfo("D$REVISION_ID($DIFF_ID) #$BUILD_NUMBER", "<a href=\"https://phabricator.mesosphere.com/D$REVISION_ID\">D$REVISION_ID</a>")
+    git changelog: false, credentialsId: '4ff09dce-407b-41d3-847a-9e6609dd91b8', poll: false, url: 'git@github.com:mesosphere/marathon.git'
+    sh """git checkout master && git branch | grep -v master | xargs git branch -D || true"""
+    m.phabricator_apply_diff("$PHID", "$BUILD_URL", "$REVISION_ID", "$DIFF_ID")
+    clean_git()
+  } else {
     checkout scm
     gitCommit = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
     shortCommit = gitCommit.take(8)
     currentBuild.displayName = "#${env.BUILD_NUMBER}: ${env.BRANCH_NAME} ${shortCommit}"
     clean_git()
-  }
-
-  should_archive_artifacts = { ->
-    return is_master_or_release()
   }
 }
 
@@ -487,7 +443,7 @@ def build_marathon() {
     package_binaries()
   }
   stage_with_commit_status("5. Archive Artifacts") {
-    if (should_archive_artifacts) {
+    if (should_archive_artifacts()) {
       archive_artifacts()
     } else {
       echo "Skipping archiving"
