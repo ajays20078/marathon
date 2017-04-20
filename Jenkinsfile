@@ -62,7 +62,7 @@ node('JenkinsMarathonCI-Debian8-2017-03-21') {
       archiveArtifacts artifacts: 'target/**/classes/**', allowEmptyArchive: true
       archiveArtifacts artifacts: 'target/universal/marathon-*.zip', allowEmptyArchive: false
       archiveArtifacts artifacts: 'target/universal/marathon-*.txz', allowEmptyArchive: false
-      archiveArtifacts artifacts: "taget/packages/*", allowEmptyArchive: false
+      archiveArtifacts artifacts: "target/packages/*", allowEmptyArchive: false
     }
     stage("6. Publish Artifacts") {
       m.publish_artifacts()
