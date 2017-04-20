@@ -157,7 +157,15 @@ def checkout
 
 if (is_phabricator_build()) {
   stage_with_commit_status = { label, block ->
-    stage(label) { block }
+    stage(label) {
+      try {
+        block
+        currentBuild.result = 'SUCCESS'
+      } catch(Exception ex) {
+        currentBuild.result = 'FAILURE'
+        throw ex
+      }
+    }
   }
 
   report_success = { ->
@@ -211,7 +219,6 @@ if (is_phabricator_build()) {
       try {
         // Execute steps in stage
         block()
-
         currentBuild.result = 'SUCCESS'
       } catch (error) {
         currentBuild.result = 'FAILURE'
