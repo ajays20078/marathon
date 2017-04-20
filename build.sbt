@@ -45,24 +45,15 @@ lazy val formatSettings = SbtScalariform.scalariformSettings ++ Seq(
     .setPreference(SpacesWithinPatternBinders, true)
 )
 
-lazy val testWithCoverageReport = taskKey[Unit]("Run tests with coverage enabled, expects 'coverageEnabled' to be set first, e.g.: `; coverage; testWithCoverageReport;`")
-
-def runTestsWithCoverageReport(config: Configuration): Def.Initialize[Task[Unit]] = Def.task {
-  if (!coverageEnabled.value) {
-    sys.error("Coverage not enabled")
-  }
-  (test in Test).andFinally {
-    coverageReport.value
-  }
-}
-
 lazy val testSettings = Seq(
-  testWithCoverageReport := (testWithCoverageReport in Test).value,
-  testWithCoverageReport in Test := runTestsWithCoverageReport(Test).value,
-  testWithCoverageReport in IntegrationTest := runTestsWithCoverageReport(IntegrationTest).value,
-  testWithCoverageReport in SerialIntegrationTest := runTestsWithCoverageReport(SerialIntegrationTest).value,
-  testWithCoverageReport in UnstableTest := runTestsWithCoverageReport(UnstableTest).value,
-  testWithCoverageReport in UnstableIntegrationTest := runTestsWithCoverageReport(UnstableIntegrationTest).value,
+  (coverageDir in IntegrationTest) := target.value / "integration-coverage",
+  (coverageDir in SerialIntegrationTest) := target.value / "integration-coverage",
+  testWithCoverageReport in IntegrationTest := TestWithCoveragePlugin.runTestsWithCoverage(IntegrationTest).value,
+  testWithCoverageReport in SerialIntegrationTest := TestWithCoveragePlugin.runTestsWithCoverage(SerialIntegrationTest).value,
+  (coverageDir in UnstableTest) := target.value / "unstable-coverage",
+  (coverageDir in UnstableIntegrationTest) := target.value / "unstable-integration-coverage",
+  testWithCoverageReport in UnstableTest := TestWithCoveragePlugin.runTestsWithCoverage(UnstableTest).value,
+  testWithCoverageReport in UnstableIntegrationTest := TestWithCoveragePlugin.runTestsWithCoverage(UnstableIntegrationTest).value,
 
   testListeners := Seq(new PhabricatorTestReportListener(target.value / "phabricator-test-reports")),
   parallelExecution in Test := true,
