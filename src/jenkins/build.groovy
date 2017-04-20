@@ -145,7 +145,7 @@ def should_publish_artifacts() {
  *   def should_archive_artifacts()
  *   def checkout()
  *}}}*/
-
+/*
 def stage_with_commit_status
 def report_success
 def report_failure
@@ -155,6 +155,7 @@ def after_tests
 def checkout
 
 if (is_phabricator_build()) {
+
   stage_with_commit_status = { label, block ->
     stage(label) {
       try {
@@ -206,7 +207,7 @@ if (is_phabricator_build()) {
     clean_git()
   }
 } else {
-
+*/
   /**
    * Wrap block with a stage and a GitHub commit status setter.
    *
@@ -285,7 +286,7 @@ if (is_phabricator_build()) {
   should_archive_artifacts = { ->
     return is_master_or_release()
   }
-}
+//}
 
 // run through compile/lint/docs. Fail if there were format changes after this.
 def compile() {
