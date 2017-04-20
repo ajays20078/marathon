@@ -6,7 +6,6 @@ def is_phabricator_build() {
   return "".equals(env.DIFF_ID)
 }
 
-
 def is_release_build(gitTag) {
   if (gitTag.contains("SNAPSHOT") || gitTag.contains("g")) {
     return false
