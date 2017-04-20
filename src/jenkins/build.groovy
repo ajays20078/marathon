@@ -145,7 +145,7 @@ def should_publish_artifacts() {
  *   def should_archive_artifacts()
  *   def checkout()
  *}}}*/
-/*
+
 def stage_with_commit_status
 def report_success
 def report_failure
@@ -207,7 +207,7 @@ if (is_phabricator_build()) {
     clean_git()
   }
 } else {
-*/
+
   /**
    * Wrap block with a stage and a GitHub commit status setter.
    *
@@ -248,7 +248,7 @@ if (is_phabricator_build()) {
     ])
   }
 
-  report_failure { ->
+  report_failure = { ->
     if (is_master_or_release()) {
       slackSend(
           message: "\u2718 branch `${env.BRANCH_NAME}` failed in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
@@ -286,7 +286,7 @@ if (is_phabricator_build()) {
   should_archive_artifacts = { ->
     return is_master_or_release()
   }
-//}
+}
 
 // run through compile/lint/docs. Fail if there were format changes after this.
 def compile() {
