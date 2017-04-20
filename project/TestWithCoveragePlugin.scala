@@ -1,16 +1,17 @@
 import sbt._
 import sbt.Keys._
+import sbt.plugins.JvmPlugin
 import scoverage.{Coverage, IOUtils, Serializer}
 import scoverage.report.{CoberturaXmlWriter, ScoverageHtmlWriter, ScoverageXmlWriter}
 
 // Adapted from SCovereageSbtPlugin so it can be run after test even if there are failures.
 object TestWithCoveragePlugin extends AutoPlugin {
-  override def requires = plugins.JvmPlugin
-  override def trigger = allRequirements
+  override def requires: JvmPlugin.type = plugins.JvmPlugin
+  override def trigger: PluginTrigger = allRequirements
 
   object autoImport {
-    val testWithCoverageReport = taskKey[Unit]("Runs tests with coverage")
-    val coverageDir = settingKey[File]("Directory to ouput coverage into")
+    val testWithCoverageReport: TaskKey[Unit] = taskKey[Unit]("Runs tests with coverage")
+    val coverageDir: SettingKey[File] = settingKey[File]("Directory to ouput coverage into")
 
   }
   import autoImport._
@@ -18,6 +19,7 @@ object TestWithCoveragePlugin extends AutoPlugin {
 
   override lazy val projectSettings = Seq(
     coverageDir := target.value / "coverage",
+    coverageDir in Test := target.value / "coverage",
     testWithCoverageReport := (testWithCoverageReport in Test).value,
     testWithCoverageReport in Test := runTestsWithCoverage(Test).value
   )
@@ -86,10 +88,10 @@ object TestWithCoveragePlugin extends AutoPlugin {
         writeCoverageReport(sourceDirs, coverage, outputDir, log)
         checkCoverage(coverage, log, coverageMinimum, failOnMinimum)
       }
-    }
+    }.value
   }
 
-  def runTestsWithCoverage(config: Configuration): Def.Initialize[Task[Unit]] = Def.task {
+  def runTestsWithCoverage(config: Configuration): Def.Initialize[Task[Unit]] = Def.taskDyn {
     runTestsWithCoverage(config, target.value, (sourceDirectories in Compile).value,
       (coverageDir in config).value, streams.value.log, (coverageMinimum in config).value,
       (coverageFailOnMinimum in config).value)

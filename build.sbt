@@ -46,6 +46,7 @@ lazy val formatSettings = SbtScalariform.scalariformSettings ++ Seq(
 )
 
 lazy val testSettings = Seq(
+  (coverageDir in Test) := target.value / "test-coverage",
   (coverageDir in IntegrationTest) := target.value / "integration-coverage",
   (coverageDir in SerialIntegrationTest) := target.value / "integration-coverage",
   testWithCoverageReport in IntegrationTest := TestWithCoveragePlugin.runTestsWithCoverage(IntegrationTest).value,
@@ -277,7 +278,7 @@ addCommandAlias("packageRpm",  ";set serverLoading in Rpm := com.typesafe.sbt.pa
 
 
 lazy val `plugin-interface` = (project in file("plugin-interface"))
-    .enablePlugins(GitBranchPrompt, CopyPasteDetector, BasicLintingPlugin)
+    .enablePlugins(GitBranchPrompt, CopyPasteDetector, BasicLintingPlugin, TestWithCoveragePlugin)
     .configs(SerialIntegrationTest)
     .configs(IntegrationTest)
     .configs(UnstableTest)
@@ -295,7 +296,7 @@ lazy val marathon = (project in file("."))
   .configs(UnstableTest)
   .configs(UnstableIntegrationTest)
   .enablePlugins(GitBranchPrompt, JavaServerAppPackaging, DockerPlugin, DebianPlugin, RpmPlugin, JDebPackaging,
-    CopyPasteDetector, RamlGeneratorPlugin, BasicLintingPlugin, GitVersioning)
+    CopyPasteDetector, RamlGeneratorPlugin, BasicLintingPlugin, GitVersioning, TestWithCoveragePlugin)
   .dependsOn(`plugin-interface`)
   .settings(commonSettings: _*)
   .settings(formatSettings: _*)
@@ -319,7 +320,7 @@ lazy val `mesos-simulation` = (project in file("mesos-simulation"))
   .configs(IntegrationTest)
   .configs(UnstableTest)
   .configs(UnstableIntegrationTest)
-  .enablePlugins(GitBranchPrompt, CopyPasteDetector, BasicLintingPlugin)
+  .enablePlugins(GitBranchPrompt, CopyPasteDetector, BasicLintingPlugin, TestWithCoveragePlugin)
   .settings(commonSettings: _*)
   .settings(formatSettings: _*)
   .dependsOn(marathon % "compile->compile; test->test")
@@ -333,7 +334,7 @@ lazy val benchmark = (project in file("benchmark"))
   .configs(IntegrationTest)
   .configs(UnstableTest)
   .configs(UnstableIntegrationTest)
-  .enablePlugins(JmhPlugin, GitBranchPrompt, CopyPasteDetector, BasicLintingPlugin)
+  .enablePlugins(JmhPlugin, GitBranchPrompt, CopyPasteDetector, BasicLintingPlugin, TestWithCoveragePlugin)
   .settings(commonSettings : _*)
   .settings(formatSettings: _*)
   .dependsOn(marathon % "compile->compile; test->test")
