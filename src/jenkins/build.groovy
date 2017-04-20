@@ -229,7 +229,7 @@ if (is_phabricator_build()) {
     if (is_master_or_release()) {
       if (previousBuildFailed() && currentBuild.result == 'SUCCESS') {
         slackSend(
-            message: "╭( ･ㅂ･)و ̑̑ branch `${env.BRANCH_NAME}` is green again. (<${env.BUILD_URL}|Open>)",
+            message: "\u2714 ̑̑branch `${env.BRANCH_NAME}` is green again. (<${env.BUILD_URL}|Open>)",
             color: "good",
             channel: "#marathon-dev",
             tokenCredentialId: "f430eaac-958a-44cb-802a-6a943323a6a8")
@@ -244,7 +244,7 @@ if (is_phabricator_build()) {
   report_failure { ->
     if (is_master_or_release()) {
       slackSend(
-          message: "(;¬_¬) branch `${env.BRANCH_NAME}` failed in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
+          message: "\u2718 branch `${env.BRANCH_NAME}` failed in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
           color: "danger",
           channel: "#marathon-dev",
           tokenCredentialId: "f430eaac-958a-44cb-802a-6a943323a6a8")
@@ -257,8 +257,7 @@ if (is_phabricator_build()) {
 
   report_unstable_tests = { ->
     if (is_master_or_release()) {
-      slackSend(
-          message: "(;¬_¬) branch `${env.BRANCH_NAME}` failed in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
+      slackSend(message: "\u26a0 branch `${env.BRANCH_NAME}` has unstable tests in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
           color: "danger",
           channel: "#marathon-dev",
           tokenCredentialId: "f430eaac-958a-44cb-802a-6a943323a6a8")
@@ -300,7 +299,7 @@ def test() {
   try {
     timeout(time: 30, unit: 'MINUTES') {
       withEnv(['RUN_DOCKER_INTEGRATION_TESTS=true', 'RUN_MESOS_INTEGRATION_TESTS=true']) {
-        sh(script: """sudo -E sbt -Dsbt.log.format=false testWithCoverageReport""")
+        sh """sudo -E sbt -Dsbt.log.format=false testWithCoverageReport"""
       }
     }
   } finally {
@@ -314,7 +313,7 @@ def integration_test() {
   try {
     timeout(time: 60, unit: 'MINUTES') {
       withEnv(['RUN_DOCKER_INTEGRATION_TESTS=true', 'RUN_MESOS_INTEGRATION_TESTS=true']) {
-        sh("""sudo -E sbt -Dsbt.log.format=false '; clean; coverage; integration:testWithCoverageReport' """
+        sh """sudo -E sbt -Dsbt.log.format=false '; clean; coverage; integration:testWithCoverageReport' """
       }
     }
   } finally {
@@ -333,8 +332,7 @@ def unstable_test() {
   try {
     timeout(time: 60, unit: 'MINUTES') {
       withEnv(['RUN_DOCKER_INTEGRATION_TESTS=true', 'RUN_MESOS_INTEGRATION_TESTS=true']) {
-        sh() "sudo -E sbt -Dsbt.log.format=false clean coverage unstable:testWithCoverageReport unstable-integration:testWithCoverageReport"
-        )
+        sh "sudo -E sbt -Dsbt.log.format=false clean coverage unstable:testWithCoverageReport unstable-integration:testWithCoverageReport"
       }
     }
   } catch (Exception err) {
@@ -347,6 +345,77 @@ def unstable_test() {
     publish_test_coverage("Unstable Integration Test", "target/unstable-integration-coverage")
     after_tests("Unstable tests")
   }
+}
+
+def publish_to_s3(gitTag) {
+  storageClass = "STANDARD_IA"
+  // TODO: we could use marathon-artifacts for both profile and buckets, but we would
+  // need to either setup a bucket policy for public-read on the s3://marathon-artifacts/snapshots
+  // We should probably prefer downloads as this allows us to share snapshot builds
+  // with anyone. The directory listing isn't public anyways.
+  profile = "aws-production"
+  bucket = "downloads.mesosphere.io/marathon/snapshots"
+  region = "us-east-1"
+  upload_on_failure = !is_release_build(gitTag)
+  if (is_release_build(gitTag)) {
+    storageClass = "STANDARD"
+    bucket = "downloads.mesosphere.io/marathon/${gitTag}"
+  }
+  sh "sha1sum target/universal/marathon-${gitTag}.txz > target/universal/marathon-${gitTag}.txz.sha1"
+  sh "sha1sum target/universal/marathon-${gitTag}.zip > target/universal/marathon-${gitTag}.zip.sha1"
+  step([
+      $class: 'S3BucketPublisher',
+      entries: [
+        [
+            sourceFile: "target/universal/marathon-*.txz",
+            bucket: bucket,
+            selectedRegion: region,
+            noUploadOnFailure: upload_on_failure,
+            managedArtifacts: false,
+            flatten: true,
+            showDirectlyInBrowser: false,
+            keepForever: true,
+            storageClass: storageClass,
+        ],
+        [
+            sourceFile: "target/universal/marathon-*.txz.sha1",
+            bucket: bucket,
+            selectedRegion: region,
+            noUploadOnFailure: upload_on_failure,
+            managedArtifacts: false,
+            flatten: true,
+            showDirectlyInBrowser: false,
+            keepForever: true,
+            storageClass: storageClass,
+        ],
+        [
+            sourceFile: "target/universal/marathon-*.zip",
+            bucket: bucket,
+            selectedRegion: region,
+            noUploadOnFailure: upload_on_failure,
+            managedArtifacts: false,
+            flatten: true,
+            showDirectlyInBrowser: false,
+            keepForever: true,
+            storageClass: storageClass,
+        ],
+        [
+            sourceFile: "target/universal/marathon-*.zip.sha1",
+            bucket: bucket,
+            selectedRegion: region,
+            noUploadOnFailure: upload_on_failure,
+            managedArtifacts: false,
+            flatten: true,
+            showDirectlyInBrowser: false,
+            keepForever: true,
+            storageClass: storageClass,
+        ],
+      ],
+      profileName: profile,
+      dontWaitForConcurrentBuildCompletion: false,
+      consoleLogLevel: 'INFO',
+      pluginFailureResultConstraint: 'FAILURE'
+  ])
 }
 
 def publish_artifacts() {
@@ -364,64 +433,33 @@ def publish_artifacts() {
       sh "docker push mesosphere/marathon:${gitTag}"
     }
   }
-  if (env.BRANCH_NAME == "master" || env.PUBLISH_SNAPSHOT == "true" || is_release_build(gitTag)) {
-    storageClass = "STANDARD_IA"
-    // TODO: we could use marathon-artifacts for both profile and buckets, but we would
-    // need to either setup a bucket policy for public-read on the s3://marathon-artifacts/snapshots
-    // We should probably prefer downloads as this allows us to share snapshot builds
-    // with anyone. The directory listing isn't public anyways.
-    profile = "aws-production"
-    bucket = "downloads.mesosphere.io/marathon/snapshots/"
 
-    if (is_release_build(gitTag)) {
-      storageClass = "STANDARD"
-      bucket = "downloads.mesosphere.io/marathon/${gitTag}/"
-    }
-    step([
-        $class: 'S3BucketPublisher',
-        entries: [[
-            sourceFile: "target/universal/marathon-*.txz",
-            bucket: bucket,
-            selectedRegion: 'us-west-2',
-            noUploadOnFailure: true,
-            managedArtifacts: false,
-            flatten: true,
-            showDirectlyInBrowser: true,
-            keepForever: true,
-            storageClass: storageClass,
-        ],
-            [
-                sourceFile: "target/universal/marathon-*.zip",
-                bucket: bucket,
-                selectedRegion: 'us-west-2',
-                noUploadOnFailure: true,
-                managedArtifacts: false,
-                flatten: true,
-                showDirectlyInBrowser: true,
-                keepForever: true,
-                storageClass: storageClass,
-            ],
-        ],
-        profileName: profile,
-        dontWaitForConcurrentBuildCompletion: false,
-        consoleLogLevel: 'INFO',
-        pluginFailureResultConstraint: 'FAILURE'
-    ])
+  publish_to_s3(gitTag)
+
+  sshagent(credentials: ['0f7ec9c9-99b2-4797-9ed5-625572d5931d']) {
+    // we rsync a directory first, then copy over the binaries into specific folders so
+    // that the cron job won't try to publish half-uploaded RPMs/DEBs
+    sh """ssh -o StrictHostKeyChecking=no pkgmaintainer@repo1.hw.ca1.mesosphere.com "mkdir -p ~/repo/incoming/marathon-${gitTag}" """
+    sh "rsync -avzP target/packages/*${gitTag}* target/packages/*.rpm pkgmaintainer@repo1.hw.ca1.mesosphere.com:~/repo/incoming/marathon-${gitTag}"
+    sh """ssh -o StrictHostKeyChecking=no -o BatchMode=yes pkgmaintainer@repo1.hw.ca1.mesosphere.com "env GIT_TAG=${gitTag} bash -s --" < scripts/publish_packages.sh """
+    sh """ssh -o StrictHostKeyChecking=no -o BatchMode=yes pkgmaintainer@repo1.hw.ca1.mesosphere.com "rm -rf ~/repo/incoming/marathon-${gitTag}" """
   }
-  if (env.BRANCH_NAME == "master" || env.PUBLISH_SNAPSHOT == "true" || is_release_build(gitTag)) {
-    sshagent(credentials: ['0f7ec9c9-99b2-4797-9ed5-625572d5931d']) {
-      echo "Uploading Artifacts to package server"
-      // we rsync a directory first, then copy over the binaries into specific folders so
-      // that the cron job won't try to publish half-uploaded RPMs/DEBs
-      sh """ssh -o StrictHostKeyChecking=no pkgmaintainer@repo1.hw.ca1.mesosphere.com "mkdir -p ~/repo/incoming/marathon-${gitTag}" """
-      sh "rsync -avzP target/packages/*${gitTag}* target/packages/*.rpm pkgmaintainer@repo1.hw.ca1.mesosphere.com:~/repo/incoming/marathon-${gitTag}"
-      sh """ssh -o StrictHostKeyChecking=no -o BatchMode=yes pkgmaintainer@repo1.hw.ca1.mesosphere.com "env GIT_TAG=${gitTag} bash -s --" < scripts/publish_packages.sh """
-      sh """ssh -o StrictHostKeyChecking=no -o BatchMode=yes pkgmaintainer@repo1.hw.ca1.mesosphere.com "rm -rf ~/repo/incoming/marathon-${gitTag}" """
-    }
-  }
+  return this
 }
 
-/** Most of the actual build is here, checkout already happened */
+def package_binaries() {
+  sh("sudo rm -f target/packages/*")
+  sh("sudo sbt packageAll")
+  return this
+}
+
+def archive_artifacts() {
+  archiveArtifacts artifacts: 'target/**/classes/**', allowEmptyArchive: true
+  archiveArtifacts artifacts: 'target/universal/marathon-*.zip', allowEmptyArchive: false
+  archiveArtifacts artifacts: 'target/universal/marathon-*.txz', allowEmptyArchive: false
+  archiveArtifacts artifacts: "target/packages/*", allowEmptyArchive: false
+}
+
 def build_marathon() {
   stage("Kill Junk") {
     kill_junk()
@@ -440,6 +478,27 @@ def build_marathon() {
   }
   stage_with_commit_status("4. Package Binaries") {
     package_binaries()
+  }
+  stage_with_commit_status("5. Archive Artifacts") {
+    if (should_archive_artifacts) {
+      archive_artifacts()
+    } else {
+      echo "Skipping archiving"
+    }
+  }
+  stage_with_commit_status("6. Publish Binaries") {
+    if (should_publish_artifacts()) {
+      publish_artifacts()
+    } else {
+      echo "Skipping publishing"
+    }
+  }
+  stage_with_commit_status("7. Unstable Tests") {
+    if (has_unstable_tests) {
+      unstable_test()
+    } else {
+      echo "\u2714 No Unstable Tests!"
+    }
   }
 }
 

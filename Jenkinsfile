@@ -1,113 +1,43 @@
 #!/usr/bin/env groovy
-// so we can use marathon.groovy
+
+/* BEGIN: Things defined in src/jenkins/build.groovy that have to be duplicated because we don't have the file available at the time they are needed. */
+// Install job-level dependencies that aren't specific to the build and
+// can be required as part of checkout and should be applied before knowing
+// the revision's information. e.g. JQ is required to post to phabricator.
+// This should generally be fixed in the AMI, eventually.
+// MARATHON-7026
+def install_dependencies() {
+  sh "chmod 0600 ~/.arcrc"
+  // JQ is broken in the image
+  sh "curl -L https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 > /tmp/jq && sudo mv /tmp/jq /usr/bin/jq && sudo chmod +x /usr/bin/jq"
+  // install ammonite (scala shell)
+  sh """mkdir -p ~/.ammonite && curl -L -o ~/.ammonite/predef.sc https://git.io/v6r5y && mkdir -p ~/.ammonite && curl -L -o ~/.ammonite/predef.sc https://git.io/v6r5y"""
+  sh """sudo curl -L -o /usr/local/bin/amm https://github.com/lihaoyi/Ammonite/releases/download/0.8.2/2.12-0.8.2 && sudo chmod +x /usr/local/bin/amm"""
+  return this
+}
+
+def setBuildInfo(displayName, description) {
+  currentBuild.displayName = displayName
+  currentBuild.description = description
+  return this
+}
+
+def checkout_marathon_master() {
+  git changelog: false, credentialsId: '4ff09dce-407b-41d3-847a-9e6609dd91b8', poll: false, url: 'git@github.com:mesosphere/marathon.git'
+  sh "sudo git clean -fdx"
+  sh """git tag | grep phabricator | xargs git tag -d || true """
+  return this
+}
+
 def m
 
-
-node('JenkinsMarathonCI-Debian8-2017-03-21') {
-  try {
-    stage("Checkout Repo") {
-      checkout scm
-      gitCommit = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
-      shortCommit = gitCommit.take(8)
-      currentBuild.displayName = "#${env.BUILD_NUMBER}: ${shortCommit}"
-      sh """git tag | grep phabricator | xargs git tag -d || true """
+ansiColor('gnome-terminal') {
+  node('JenkinsMarathonCI-Debian8-2017-03-21') {
+    m = load("src/jenkins/build.groovy")
+    stage("Checkout") {
+      m.checkout()
+      m = load("src/jenkins/build.groovy")
     }
-    m = load("marathon.groovy")
-    m.install_dependencies()
-
-    stage("Kill junk processes") {
-      m.kill_junk()
-    }
-    stage("Install Mesos") {
-      m.install_mesos()
-    }
-    m.stageWithCommitStatus("1. Compile") {
-      try {
-        m.compile()
-      } finally {
-        archiveArtifacts artifacts: 'target/**/scapegoat-report/scapegoat.html', allowEmptyArchive: true
-      }
-    }
-    m.stageWithCommitStatus("2. Test") {
-      try {
-        m.test()
-      } finally {
-        sh "sudo mv target/scala-2.11/scoverage-report/ target/scala-2.11/scoverage-report-unit"
-        sh "sudo mv target/scala-2.11/coverage-report/cobertura.xml target/scala-2.11/coverage-report/cobertura-unit.xml"
-        archiveArtifacts(
-            artifacts: 'target/**/coverage-report/cobertura-unit.xml, target/**/scoverage-report-unit/**',
-            allowEmptyArchive: true)
-      }
-    }
-    m.stageWithCommitStatus("3. Test Integration") {
-      try {
-        m.integration_test()
-      } finally {
-        // scoverage does not allow the configuration of a different output
-        // path: https://github.com/scoverage/sbt-scoverage/issues/211
-        // The archive steps does not allow a different target path. So we
-        // move the files to avoid conflicts with the reports from the unit
-        // test run.
-        sh "sudo mv target/scala-2.11/scoverage-report/ target/scala-2.11/scoverage-report-integration"
-        sh "sudo mv target/scala-2.11/coverage-report/cobertura.xml target/scala-2.11/coverage-report/cobertura-integration.xml"
-        archiveArtifacts(
-            artifacts: 'target/**/coverage-report/cobertura-integration.xml, target/**/scoverage-report-integration/**',
-            allowEmptyArchive: true)
-      }
-    }
-    stage("4. Package Binaries") {
-      m.package_binaries()
-    }
-    stage("5. Archive Artifacts") {
-      archiveArtifacts artifacts: 'target/**/classes/**', allowEmptyArchive: true
-      archiveArtifacts artifacts: 'target/universal/marathon-*.zip', allowEmptyArchive: false
-      archiveArtifacts artifacts: 'target/universal/marathon-*.txz', allowEmptyArchive: false
-      archiveArtifacts artifacts: "taget/packages/*", allowEmptyArchive: false
-    }
-    stage("6. Publish Artifacts") {
-      m.publish_artifacts()
-    }
-    stage("7. Run Unstable Tests") {
-      if (m.has_unstable_tests()) {
-        try {
-          m.unstable_test()
-        } catch (err) {
-          // For PRs, can we report it there somehow?
-          if (env.BRANCH_NAME.startsWith("releases/") || env.BRANCH_NAME == "master") {
-            slackSend(message: "\u26a0 branch `${env.BRANCH_NAME}` has unstable tests in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
-                color: "danger",
-                channel: "#marathon-dev",
-                tokenCredentialId: "f430eaac-958a-44cb-802a-6a943323a6a8")
-          }
-        }
-      }
-    }
-  } catch (Exception err) {
-    echo "Ran into an error in the pipeline: ${err}"
-    currentBuild.result = 'FAILURE'
-    if (env.BRANCH_NAME.startsWith("releases/") || env.BRANCH_NAME == "master") {
-      slackSend(
-          message: "\u2718 branch `${env.BRANCH_NAME}` failed in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
-          color: "danger",
-          channel: "#marathon-dev",
-          tokenCredentialId: "f430eaac-958a-44cb-802a-6a943323a6a8")
-    }
-    throw err
-  } finally {
-    if (env.BRANCH_NAME.startsWith("releases/") || env.BRANCH_NAME == "master") {
-      // Last build failed but this succeeded.
-      if (m.previousBuildFailed() && currentBuild.result == 'SUCCESS') {
-        slackSend(
-            message: "\u2714 ̑̑ branch `${env.BRANCH_NAME}` is green again. (<${env.BUILD_URL}|Open>)",
-            color: "good",
-            channel: "#marathon-dev",
-            tokenCredentialId: "f430eaac-958a-44cb-802a-6a943323a6a8")
-      }
-    }
-
-    step([$class: 'GitHubCommitStatusSetter'
-        , errorHandlers: [[$class: 'ShallowAnyErrorHandler']]
-        , contextSource: [$class: 'ManuallyEnteredCommitContextSource', context: "Velocity All"]
-    ])
+    m.build_marathon()
   }
 }
