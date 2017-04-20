@@ -21,13 +21,13 @@ def m
 
 ansiColor('gnome-terminal') {
   node('JenkinsMarathonCI-Debian8-2017-03-21') {
-    m = load("src/jenkins/build.groovy")
+    m = load("build.groovy")
     stage("Install Dependencies") {
       m.install_dependencies()
     }
     stage("Checkout") {
       m.checkout_marathon()
-      m = load("src/jenkins/build.groovy")
+      m = load("build.groovy")
     }
     m.build_marathon()
   }
