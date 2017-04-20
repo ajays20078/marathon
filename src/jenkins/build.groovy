@@ -228,7 +228,7 @@ def after_tests(category) {
   }
 }
 
-def checkout() {
+def checkout_marathon() {
   if (is_phabricator_build()) {
     setBuildInfo("D$REVISION_ID($DIFF_ID) #$BUILD_NUMBER", "<a href=\"https://phabricator.mesosphere.com/D$REVISION_ID\">D$REVISION_ID</a>")
     git changelog: false, credentialsId: '4ff09dce-407b-41d3-847a-9e6609dd91b8', poll: false, url: 'git@github.com:mesosphere/marathon.git'
@@ -424,44 +424,50 @@ def archive_artifacts() {
 }
 
 def build_marathon() {
-  stage("Kill Junk") {
-    kill_junk()
-  }
-  stage("Install Mesos") {
-    install_mesos()
-  }
-  stage_with_commit_status("1. Compile") {
-    compile()
-  }
-  stage_with_commit_status("2. Test") {
-    test()
-  }
-  stage_with_commit_status("3. Integration Test") {
-    integration_test()
-  }
-  stage_with_commit_status("4. Package Binaries") {
-    package_binaries()
-  }
-  stage_with_commit_status("5. Archive Artifacts") {
-    if (should_archive_artifacts()) {
-      archive_artifacts()
-    } else {
-      echo "Skipping archiving"
+  try {
+    stage("Kill Junk") {
+      kill_junk()
     }
-  }
-  stage_with_commit_status("6. Publish Binaries") {
-    if (should_publish_artifacts()) {
-      publish_artifacts()
-    } else {
-      echo "Skipping publishing"
+    stage("Install Mesos") {
+      install_mesos()
     }
-  }
-  stage_with_commit_status("7. Unstable Tests") {
-    if (has_unstable_tests) {
-      unstable_test()
-    } else {
-      echo "\u2714 No Unstable Tests!"
+    stage_with_commit_status("1. Compile") {
+      compile()
     }
+    stage_with_commit_status("2. Test") {
+      test()
+    }
+    stage_with_commit_status("3. Integration Test") {
+      integration_test()
+    }
+    stage_with_commit_status("4. Package Binaries") {
+      package_binaries()
+    }
+    stage_with_commit_status("5. Archive Artifacts") {
+      if (should_archive_artifacts()) {
+        archive_artifacts()
+      } else {
+        echo "Skipping archiving"
+      }
+    }
+    stage_with_commit_status("6. Publish Binaries") {
+      if (should_publish_artifacts()) {
+        publish_artifacts()
+      } else {
+        echo "Skipping publishing"
+      }
+    }
+    stage_with_commit_status("7. Unstable Tests") {
+      if (has_unstable_tests()) {
+        unstable_test()
+      } else {
+        echo "\u2714 No Unstable Tests!"
+      }
+    }
+    report_success()
+  } catch (Exception err) {
+    report_failure()
+    throw err
   }
 }
 

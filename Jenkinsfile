@@ -26,7 +26,7 @@ ansiColor('gnome-terminal') {
       m.install_dependencies()
     }
     stage("Checkout") {
-      m.checkout()
+      m.checkout_marathon()
       m = load("src/jenkins/build.groovy")
     }
     m.build_marathon()
