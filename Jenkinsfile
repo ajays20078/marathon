@@ -40,76 +40,76 @@ node('JenkinsMarathonCI-Debian8-2017-03-21') {
             allowEmptyArchive: true)
       }
     }
-//    m.stageWithCommitStatus("3. Test Integration") {
-//      try {
-//        m.integration_test()
-//      } finally {
-//        // scoverage does not allow the configuration of a different output
-//        // path: https://github.com/scoverage/sbt-scoverage/issues/211
-//        // The archive steps does not allow a different target path. So we
-//        // move the files to avoid conflicts with the reports from the unit
-//        // test run.
-//        sh "sudo mv target/scala-2.11/scoverage-report/ target/scala-2.11/scoverage-report-integration"
-//        sh "sudo mv target/scala-2.11/coverage-report/cobertura.xml target/scala-2.11/coverage-report/cobertura-integration.xml"
-//        archiveArtifacts(
-//            artifacts: 'target/**/coverage-report/cobertura-integration.xml, target/**/scoverage-report-integration/**',
-//            allowEmptyArchive: true)
-//      }
-//    }
-//    stage("4. Assemble Runnable Binaries") {
-//      m.assembly()
-//    }
-//    stage("5. Package Binaries") {
-//      m.package_binaries()
-//    }
-//    stage("6. Run Unstable Tests") {
-//      if (m.has_unstable_tests()) {
-//        try {
-//          m.unstable_test()
-//        } catch (err) {
-//          // For PRs, can we report it there somehow?
-//          if (env.BRANCH_NAME.startsWith("releases/") || env.BRANCH_NAME == "master") {
-//            slackSend(message: "\u26a0 branch `${env.BRANCH_NAME}` failed in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
-//                color: "danger",
-//                channel: "#marathon-dev",
-//                tokenCredentialId: "f430eaac-958a-44cb-802a-6a943323a6a8")
-//          }
-//        }
-//      }
-//    }
-//    stage("7. Archive Artifacts") {
-//      archiveArtifacts artifacts: 'target/**/classes/**', allowEmptyArchive: true
-//      archiveArtifacts artifacts: 'target/marathon-runnable.jar', allowEmptyArchive: true
-//      archiveArtifacts artifacts: "target/marathon-${gitVersion}.tgz", allowEmptyArchive: false
-//      archiveArtifacts artifacts: "packaging/marathon*.deb", allowEmptyArchive: false
-//      archiveArtifacts artifacts: "packaging/marathon*.rpm", allowEmptyArchive: false
-//      step([
-//          $class: 'S3BucketPublisher',
-//          entries: [[
-//              sourceFile: "target/marathon-*.tgz",
-//              bucket: 'marathon-artifacts',
-//              selectedRegion: 'us-west-2',
-//              noUploadOnFailure: true,
-//              managedArtifacts: true,
-//              flatten: true,
-//              showDirectlyInBrowser: false,
-//              keepForever: true,
-//          ]],
-//          profileName: 'marathon-artifacts',
-//          dontWaitForConcurrentBuildCompletion: false,
-//          consoleLogLevel: 'INFO',
-//          pluginFailureResultConstraint: 'FAILURE'
-//      ])
-//    }
-//    // Only create latest-dev snapshot for master.
-//    if (env.BRANCH_NAME == "master") {
-//      stage("8. Publish Docker Image Snaphot") {
-//        docker.image("mesosphere/marathon:${gitVersion}").tag("latest-dev")
-//        docker.withRegistry("https://index.docker.io/v1/", "docker-hub-credentials") {
-//          docker.image("mesosphere/marathon:latest-dev").push()
-//        }
-//      }
-//    }
+    m.stageWithCommitStatus("3. Test Integration") {
+      try {
+        m.integration_test()
+      } finally {
+        // scoverage does not allow the configuration of a different output
+        // path: https://github.com/scoverage/sbt-scoverage/issues/211
+        // The archive steps does not allow a different target path. So we
+        // move the files to avoid conflicts with the reports from the unit
+        // test run.
+        sh "sudo mv target/scala-2.11/scoverage-report/ target/scala-2.11/scoverage-report-integration"
+        sh "sudo mv target/scala-2.11/coverage-report/cobertura.xml target/scala-2.11/coverage-report/cobertura-integration.xml"
+        archiveArtifacts(
+            artifacts: 'target/**/coverage-report/cobertura-integration.xml, target/**/scoverage-report-integration/**',
+            allowEmptyArchive: true)
+      }
+    }
+    stage("4. Assemble Runnable Binaries") {
+      m.assembly()
+    }
+    stage("5. Package Binaries") {
+      m.package_binaries()
+    }
+    stage("6. Run Unstable Tests") {
+      if (m.has_unstable_tests()) {
+        try {
+          m.unstable_test()
+        } catch (err) {
+          // For PRs, can we report it there somehow?
+          if (env.BRANCH_NAME.startsWith("releases/") || env.BRANCH_NAME == "master") {
+            slackSend(message: "\u26a0 branch `${env.BRANCH_NAME}` failed in build `${env.BUILD_NUMBER}`. (<${env.BUILD_URL}|Open>)",
+                color: "danger",
+                channel: "#marathon-dev",
+                tokenCredentialId: "f430eaac-958a-44cb-802a-6a943323a6a8")
+          }
+        }
+      }
+    }
+    stage("7. Archive Artifacts") {
+      archiveArtifacts artifacts: 'target/**/classes/**', allowEmptyArchive: true
+      archiveArtifacts artifacts: 'target/marathon-runnable.jar', allowEmptyArchive: true
+      archiveArtifacts artifacts: "target/marathon-${gitVersion}.tgz", allowEmptyArchive: false
+      archiveArtifacts artifacts: "packaging/marathon*.deb", allowEmptyArchive: false
+      archiveArtifacts artifacts: "packaging/marathon*.rpm", allowEmptyArchive: false
+      step([
+          $class: 'S3BucketPublisher',
+          entries: [[
+              sourceFile: "target/marathon-*.tgz",
+              bucket: 'marathon-artifacts',
+              selectedRegion: 'us-west-2',
+              noUploadOnFailure: true,
+              managedArtifacts: true,
+              flatten: true,
+              showDirectlyInBrowser: false,
+              keepForever: true,
+          ]],
+          profileName: 'marathon-artifacts',
+          dontWaitForConcurrentBuildCompletion: false,
+          consoleLogLevel: 'INFO',
+          pluginFailureResultConstraint: 'FAILURE'
+      ])
+    }
+    // Only create latest-dev snapshot for master.
+    if (env.BRANCH_NAME == "master") {
+      stage("8. Publish Docker Image Snaphot") {
+        docker.image("mesosphere/marathon:${gitVersion}").tag("latest-dev")
+        docker.withRegistry("https://index.docker.io/v1/", "docker-hub-credentials") {
+          docker.image("mesosphere/marathon:latest-dev").push()
+        }
+      }
+    }
   } catch (Exception err) {
     currentBuild.result = 'FAILURE'
     if (env.BRANCH_NAME.startsWith("releases/") || env.BRANCH_NAME == "master") {
