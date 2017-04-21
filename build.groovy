@@ -323,8 +323,8 @@ def publish_to_s3(gitTag) {
     storageClass = "STANDARD"
     bucket = "downloads.mesosphere.io/marathon/${gitTag}"
   }
-  sh "sha1sum target/universal/marathon-${gitTag}.txz > target/universal/marathon-${gitTag}.txz.sha1"
-  sh "sha1sum target/universal/marathon-${gitTag}.zip > target/universal/marathon-${gitTag}.zip.sha1"
+  sh "sudo sh -c 'sha1sum target/universal/marathon-${gitTag}.txz > target/universal/marathon-${gitTag}.txz.sha1' "
+  sh "sudo sh -c 'sha1sum target/universal/marathon-${gitTag}.zip > target/universal/marathon-${gitTag}.zip.sha1' "
   step([
       $class: 'S3BucketPublisher',
       entries: [
@@ -433,14 +433,15 @@ def build_marathon() {
     stage_with_commit_status("1. Compile") {
       compile()
     }
-    stage_with_commit_status("2. Test") {
+    // packaging should come after compile so we don't accidentally package coverage builds.
+    stage_with_commit_status("2. Package Binaries") {
+      package_binaries()
+    }
+    stage_with_commit_status("3. Test") {
       test()
     }
-    stage_with_commit_status("3. Integration Test") {
+    stage_with_commit_status("4. Integration Test") {
       integration_test()
-    }
-    stage_with_commit_status("4. Package Binaries") {
-      package_binaries()
     }
     stage_with_commit_status("5. Archive Artifacts") {
       if (should_archive_artifacts()) {
