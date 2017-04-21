@@ -111,7 +111,7 @@ def install_dependencies() {
 }
 
 def clean_git() {
-  sh "git clean -fdx && git tag | grep phabricator | git tag -d"
+  sh "sudo git clean -fdx && git tag | grep phabricator | git tag -d"
   return this
 }
 
