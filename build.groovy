@@ -411,7 +411,7 @@ def publish_artifacts() {
 
 def package_binaries() {
   sh("sudo rm -f target/packages/*")
-  sh("sudo sbt packageAll")
+  sh("sudo sbt clean packageAll")
   return this
 }
 
@@ -433,15 +433,14 @@ def build_marathon() {
     stage_with_commit_status("1. Compile") {
       compile()
     }
-    // packaging should come after compile so we don't accidentally package coverage builds.
-    stage_with_commit_status("2. Package Binaries") {
-      package_binaries()
-    }
-    stage_with_commit_status("3. Test") {
+    stage_with_commit_status("2. Test") {
       test()
     }
-    stage_with_commit_status("4. Integration Test") {
+    stage_with_commit_status("3. Integration Test") {
       integration_test()
+    }
+    stage_with_commit_status("4. Package Binaries") {
+      package_binaries()
     }
     stage_with_commit_status("5. Archive Artifacts") {
       if (should_archive_artifacts()) {
