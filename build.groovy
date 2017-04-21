@@ -294,7 +294,7 @@ def unstable_test() {
   try {
     timeout(time: 60, unit: 'MINUTES') {
       withEnv(['RUN_DOCKER_INTEGRATION_TESTS=true', 'RUN_MESOS_INTEGRATION_TESTS=true']) {
-        sh "sudo -E sbt -Dsbt.log.format=false '; clean; coverage unstable:testWithCoverageReport; unstable-integration:testWithCoverageReport' "
+        sh "sudo -E sbt -Dsbt.log.format=false '; clean; coverage; unstable:testWithCoverageReport; unstable-integration:testWithCoverageReport' "
       }
     }
   } catch (Exception err) {
@@ -318,10 +318,13 @@ def publish_to_s3(gitTag) {
   profile = "aws-production"
   bucket = "downloads.mesosphere.io/marathon/snapshots"
   region = "us-east-1"
-  upload_on_failure = !is_release_build(gitTag)
+  upload_on_failure = true
+  manageArtifacts = true
   if (is_release_build(gitTag)) {
     storageClass = "STANDARD"
     bucket = "downloads.mesosphere.io/marathon/${gitTag}"
+    upload_on_failure = false
+    manage_artifacts = false
   }
   sh "sudo sh -c 'sha1sum target/universal/marathon-${gitTag}.txz > target/universal/marathon-${gitTag}.txz.sha1' "
   sh "sudo sh -c 'sha1sum target/universal/marathon-${gitTag}.zip > target/universal/marathon-${gitTag}.zip.sha1' "
@@ -333,7 +336,7 @@ def publish_to_s3(gitTag) {
             bucket: bucket,
             selectedRegion: region,
             noUploadOnFailure: upload_on_failure,
-            managedArtifacts: false,
+            managedArtifacts: manage_artifacts,
             flatten: true,
             showDirectlyInBrowser: false,
             keepForever: true,
@@ -344,7 +347,7 @@ def publish_to_s3(gitTag) {
             bucket: bucket,
             selectedRegion: region,
             noUploadOnFailure: upload_on_failure,
-            managedArtifacts: false,
+            managedArtifacts: manage_artifacts,
             flatten: true,
             showDirectlyInBrowser: false,
             keepForever: true,
@@ -355,7 +358,7 @@ def publish_to_s3(gitTag) {
             bucket: bucket,
             selectedRegion: region,
             noUploadOnFailure: upload_on_failure,
-            managedArtifacts: false,
+            managedArtifacts: manage_artifacts,
             flatten: true,
             showDirectlyInBrowser: false,
             keepForever: true,
@@ -366,7 +369,7 @@ def publish_to_s3(gitTag) {
             bucket: bucket,
             selectedRegion: region,
             noUploadOnFailure: upload_on_failure,
-            managedArtifacts: false,
+            managedArtifacts: manage_artifacts,
             flatten: true,
             showDirectlyInBrowser: false,
             keepForever: true,
@@ -443,18 +446,10 @@ def build_marathon() {
       package_binaries()
     }
     stage_with_commit_status("5. Archive Artifacts") {
-      if (should_archive_artifacts()) {
-        archive_artifacts()
-      } else {
-        echo "Skipping archiving"
-      }
+      archive_artifacts()
     }
     stage_with_commit_status("6. Publish Binaries") {
-      if (should_publish_artifacts()) {
-        publish_artifacts()
-      } else {
-        echo "Skipping publishing"
-      }
+      publish_artifacts()
     }
     stage_with_commit_status("7. Unstable Tests") {
       if (has_unstable_tests()) {
