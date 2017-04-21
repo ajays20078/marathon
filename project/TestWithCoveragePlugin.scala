@@ -25,7 +25,7 @@ object TestWithCoveragePlugin extends AutoPlugin {
   )
 
   def loadCoverage(target: File, log: Logger): Option[Coverage] = {
-    val dataDir = target / "scoverage-data"
+    val dataDir = target / "scala-2.11" / "scoverage-data"
     val coverageFile = Serializer.coverageFile(dataDir)
     log.info(s"Reading scoverage instumentation [$coverageFile]")
     if (coverageFile.exists) {
