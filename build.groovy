@@ -124,11 +124,6 @@ def is_master_or_release() {
   return env.DIFF_ID != "" && ((env.BRANCH_NAME != null && env.BRANCH_NAME.startsWith("releases/")) || env.BRANCH_NAME == "master")
 }
 
-def should_publish_artifacts() {
-  return ((env.BRANCH_NAME != null && env.BRANCH_NAME.startsWith("releases/")) || env.BRANCH_NAME == "master") || env.PUBLISH_SNAPSHOT == "true"
-}
-
-
 /**
  * Wrap block with a stage and a GitHub commit status setter for Github builds.
  *
@@ -216,10 +211,6 @@ def report_unstable_tests() {
   }
 }
 
-def should_archive_artifacts() {
-  return is_master_or_release() && !is_phabricator_build()
-}
-
 def after_tests(category) {
   if (is_phabricator_build()) {
     phabricator_convert_test_coverage(category)
@@ -251,9 +242,7 @@ def compile() {
       sh """if git diff --quiet; then echo 'No format issues detected'; else echo 'Patch has Format Issues'; exit 1; fi"""
     }
   } finally {
-    if (should_archive_artifacts()) {
-      archiveArtifacts artifacts: 'target/**/scapegoat-report/scapegoat.html', allowEmptyArchive: true
-    }
+    archiveArtifacts artifacts: 'target/**/scapegoat-report/scapegoat.html', allowEmptyArchive: true
   }
 }
 
