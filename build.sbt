@@ -49,6 +49,7 @@ lazy val testSettings = Seq(
   (coverageDir in Test) := target.value / "test-coverage",
   (coverageDir in IntegrationTest) := target.value / "integration-coverage",
   (coverageDir in SerialIntegrationTest) := target.value / "integration-coverage",
+  (coverageMinimum in IntegrationTest) := 59,
   testWithCoverageReport in IntegrationTest := TestWithCoveragePlugin.runTestsWithCoverage(IntegrationTest).value,
   testWithCoverageReport in SerialIntegrationTest := TestWithCoveragePlugin.runTestsWithCoverage(SerialIntegrationTest).value,
   (coverageDir in UnstableTest) := target.value / "unstable-coverage",
@@ -158,7 +159,7 @@ lazy val commonSettings = testSettings ++
 
   scapegoatVersion := "1.3.0",
 
-  coverageMinimum := 62,
+  coverageMinimum := 75,
   coverageFailOnMinimum := true,
 
   fork in run := true,
