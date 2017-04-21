@@ -50,8 +50,8 @@ def phabricator_test_results(status) {
 
 // Convert the test coverage into a "fake" unit test result so that
 // phabricator_test_results can consume it and report the coverage.
-def phabricator_convert_test_coverage() {
-  sh """sudo /usr/local/bin/amm scripts/convert_test_coverage.sc """
+def phabricator_convert_test_coverage(String name) {
+  sh """sudo /usr/local/bin/amm scripts/convert_test_coverage.sc $name"""
   return this
 }
 
