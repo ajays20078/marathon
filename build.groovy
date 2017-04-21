@@ -261,7 +261,7 @@ def test() {
   try {
     timeout(time: 30, unit: 'MINUTES') {
       withEnv(['RUN_DOCKER_INTEGRATION_TESTS=true', 'RUN_MESOS_INTEGRATION_TESTS=true']) {
-        sh """sudo -E sbt -Dsbt.log.format=false testWithCoverageReport"""
+        sh """sudo -E sbt -Dsbt.log.format=false '; clean; coverage; testWithCoverageReport"""
       }
     }
   } finally {
@@ -294,7 +294,7 @@ def unstable_test() {
   try {
     timeout(time: 60, unit: 'MINUTES') {
       withEnv(['RUN_DOCKER_INTEGRATION_TESTS=true', 'RUN_MESOS_INTEGRATION_TESTS=true']) {
-        sh "sudo -E sbt -Dsbt.log.format=false clean coverage unstable:testWithCoverageReport unstable-integration:testWithCoverageReport"
+        sh "sudo -E sbt -Dsbt.log.format=false '; clean; coverage unstable:testWithCoverageReport; unstable-integration:testWithCoverageReport"
       }
     }
   } catch (Exception err) {
