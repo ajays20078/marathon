@@ -1,30 +1,13 @@
 #!/usr/bin/env groovy
 
-/* BEGIN: Things defined in src/jenkins/build.groovy that have to be duplicated because we don't have the file available at the time they are needed. */
-// Install job-level dependencies that aren't specific to the build and
-// can be required as part of checkout and should be applied before knowing
-// the revision's information. e.g. JQ is required to post to phabricator.
-// This should generally be fixed in the AMI, eventually.
-// MARATHON-7026
-def install_dependencies() {
-  sh "chmod 0600 ~/.arcrc"
-  // JQ is broken in the image
-  sh "curl -L https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 > /tmp/jq && sudo mv /tmp/jq /usr/bin/jq && sudo chmod +x /usr/bin/jq"
-  // install ammonite (scala shell)
-  sh """mkdir -p ~/.ammonite && curl -L -o ~/.ammonite/predef.sc https://git.io/v6r5y && mkdir -p ~/.ammonite && curl -L -o ~/.ammonite/predef.sc https://git.io/v6r5y"""
-  sh """sudo curl -L -o /usr/local/bin/amm https://github.com/lihaoyi/Ammonite/releases/download/0.8.2/2.12-0.8.2 && sudo chmod +x /usr/local/bin/amm"""
-  return this
-}
-
-
 def m
-m = load("build.groovy")
 
 ansiColor('gnome-terminal') {
   node('JenkinsMarathonCI-Debian8-2017-03-21') {
-    stage("Install Dependencies") {
-      m.install_dependencies()
-    }
+    // fetch the file directly from SCM so we can use it to checkout the rest of the pipeline.
+    // TODO: Change to master once we this is submitted.
+    checkout changelog: false, poll: false, scm: [$class: 'GitSCM', branches: [[name: '*/pipelines/jason/omg-jenkins-ci-ci']], doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'SparseCheckoutPaths', sparseCheckoutPaths: [[path: 'build.groovy']]]], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'mesosphere-ci-github', url: 'git@github.com:mesosphere/marathon.git']]]
+    m = load("build.groovy")
     stage("Checkout") {
       m.checkout_marathon()
       m = load("build.groovy")

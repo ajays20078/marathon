@@ -110,12 +110,10 @@ def install_dependencies() {
   return this
 }
 
-
 def clean_git() {
   sh "git clean -fdx && git tag | grep phabricator | git tag -d"
   return this
 }
-
 
 def previousBuildFailed() {
   def previousResult = currentBuild.rawBuild.getPreviousBuild()?.getResult()
@@ -229,6 +227,7 @@ def after_tests(category) {
 }
 
 def checkout_marathon() {
+  install_dependencies()
   if (is_phabricator_build()) {
     setBuildInfo("D$REVISION_ID($DIFF_ID) #$BUILD_NUMBER", "<a href=\"https://phabricator.mesosphere.com/D$REVISION_ID\">D$REVISION_ID</a>")
     git changelog: false, credentialsId: '4ff09dce-407b-41d3-847a-9e6609dd91b8', poll: false, url: 'git@github.com:mesosphere/marathon.git'
