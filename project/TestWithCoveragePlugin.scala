@@ -80,9 +80,6 @@ object TestWithCoveragePlugin extends AutoPlugin {
   }
 
   def runTestsWithCoverage(config: Configuration, target: File, sourceDirs: Seq[File], outputDir: File, log: Logger, coverageMinimum: Double, failOnMinimum: Boolean): Def.Initialize[Task[Unit]] = Def.task {
-    if (!coverageEnabled.value) {
-      sys.error("Coverage not enabled")
-    }
     (test in config).andFinally {
       loadCoverage(target, log).foreach { coverage =>
         writeCoverageReport(sourceDirs, coverage, outputDir, log)
